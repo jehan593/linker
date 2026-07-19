@@ -111,6 +111,29 @@ one from the Saved Links tab fires a plain `ACTION_VIEW` intent — if Linker is
 browser, this deliberately re-enters the chooser rather than jumping straight to a browser,
 consistent with what tapping any other link does.
 
+`SavedLinksRepository.save()` treats saving an already-saved URL (exact string match, after
+trimming — no scheme/host normalization) as a bump rather than a duplicate: it updates the existing
+row's `savedAtMillis` instead of inserting a second copy, so repeatedly saving the same link keeps
+it "recently saved" and floats it back to the top rather than cluttering the list. Editing a saved
+link's URL (`updateUrl`) deliberately leaves `savedAtMillis` alone — correcting the text isn't the
+same event as (re-)saving it, so its place in the day-grouped list doesn't jump just because you
+fixed a typo. Search (`SavedLinksViewModel`) is a plain case-insensitive substring match over the
+URL text, applied client-side via `combine()` with the search query — no DB-level `LIKE` query,
+since this list is small enough that filtering in memory is simpler and just as fast. `SavedLinksScreen`
+groups the (possibly filtered) list into sticky day headers ("Today"/"Yesterday"/date) using
+`java.time.LocalDate` (available natively at minSdk 26, no desugaring needed) — grouping happens
+after filtering so a search still reads as day-organized rather than flattening into one list.
+
+Each row's pieces are colored by role instead of all sharing the default content color: the URL
+text is `primary` (reads as a link), the timestamp is muted `onSurfaceVariant`, and the three action
+icons are tinted individually — Edit neutral (`onSurfaceVariant`), Open matches the link's own
+accent (`primary`, since it's what acts on that link), Delete uses `error` — mirroring the same
+role-based coloring already used for the rename dialog's Save/Cancel/Reset in
+`ManageBrowsersScreen`. Search matches are highlighted (`highlightedUrlText` in
+`SavedLinksScreen.kt`) using a fixed Nord `nord13`-on-`nord0` span rather than theme-relative
+colors — a search highlight is meant to pop the same way regardless of dark/light mode or the link
+text's own primary tint.
+
 **No link preview**: the chooser only shows the domain (parsed from the URL) plus an editable text
 field — it deliberately doesn't render the destination page. There's no `INTERNET` permission in
 the manifest as a result; opening a link never needs one, since that always hands off to the
