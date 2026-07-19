@@ -1,0 +1,50 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # versionCode must strictly increase for update checkers (Obtainium, Android itself) to
+      # recognize a new build; run_number does that automatically across pushes to this repo.
+      - name: Build debug APK
+        run: ./gradlew assembleDebug -PappVersionCode=${{ github.run_number }} -PappVersionName=1.0.${{ github.run_number }}
+
+      # Downloadable from the Actions tab for this specific run (kept for ~90 days).
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: linker-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      # Each push gets its own tag/release (rather than overwriting one shared "latest" release)
+      # so update checkers like Obtainium — which detect new versions by tag, not by inspecting
+      # the APK — actually see a new version on every build. GitHub's own generated
+      # ".../releases/latest/download/app-debug.apk" URL still always resolves to whichever
+      # release is newest, so this doesn't lose the stable permanent-download-link use case.
+      - name: Publish release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v1.0.${{ github.run_number }}
+          name: v1.0.${{ github.run_number }}
+          body: Automatically built from ${{ github.sha }} on main. Not a stable/hand-versioned release.
+          artifacts: app/build/outputs/apk/debug/app-debug.apk
+          prerelease: false

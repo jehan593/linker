@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Compose draws the app's real UI (see LinkerTheme); these XML themes are only what the
+        manifest/system needs before the first Compose frame, following the Nord Polar Night
+        background.
+    -->
+    <style name="Theme.Linker" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <item name="android:statusBarColor">@color/ic_launcher_background</item>
+    </style>
+
+    <!--
+        LinkInterceptorActivity uses this so it renders as a floating dialog-like surface over
+        whatever app the link was tapped from, instead of a full opaque page transition — it's a
+        transient chooser, not a destination screen.
+    -->
+    <style name="Theme.Linker.Transparent" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+</resources>
