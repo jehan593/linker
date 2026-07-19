@@ -6,16 +6,21 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.linker.app.data.db.entity.SavedLinkEntity
+import com.linker.app.data.repository.NotesnookRepository
 import com.linker.app.data.repository.SavedLinksRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SavedLinksViewModel(
-    private val savedLinksRepository: SavedLinksRepository
+    private val savedLinksRepository: SavedLinksRepository,
+    private val notesnookRepository: NotesnookRepository
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow("")
@@ -42,5 +47,21 @@ class SavedLinksViewModel(
 
     fun delete(link: SavedLinkEntity) {
         viewModelScope.launch { savedLinksRepository.delete(link) }
+    }
+
+    private val _toastMessages = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val toastMessages: SharedFlow<String> = _toastMessages.asSharedFlow()
+
+    fun sendToNotesnook(link: SavedLinkEntity) {
+        viewModelScope.launch {
+            val result = notesnookRepository.sendLink(link.url)
+            _toastMessages.tryEmit(
+                when {
+                    result.isSuccess -> "Sent to Notesnook"
+                    result.exceptionOrNull() is IllegalStateException -> "Set a Notesnook API key in settings first"
+                    else -> "Send failed"
+                }
+            )
+        }
     }
 }

@@ -8,6 +8,10 @@ class SavedLinksRepository(private val savedLinkDao: SavedLinkDao) {
 
     fun observeAll(): Flow<List<SavedLinkEntity>> = savedLinkDao.observeAll()
 
+    /** Same exact-match-after-trimming comparison as [save], so this agrees with whether calling
+     *  [save] on this URL would insert a new row or just bump an existing one's timestamp. */
+    suspend fun isSaved(url: String): Boolean = savedLinkDao.findByUrl(url.trim()) != null
+
     /**
      * Saving a URL that's already saved (exact match, after trimming) bumps its existing row's
      * timestamp instead of inserting a duplicate — repeatedly saving the same link is meant to

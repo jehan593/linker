@@ -37,7 +37,7 @@ URL directly via an explicit package intent.
 ## Architecture
 
 Manual DI, no framework: `LinkerApplication` owns a single `AppContainer`
-(`di/AppContainer.kt`), lazily building the Room `AppDatabase` and three repositories. Compose
+(`di/AppContainer.kt`), lazily building the Room `AppDatabase` and four repositories. Compose
 screens reach it via `rememberAppContainer()` (`ui/AppContainerAccess.kt`). ViewModels are
 constructed directly via `viewModelFactory { initializer { ... } }` at the call site (no
 `ViewModelProvider.Factory` boilerplate) — same pattern as ownscreen's `AppDetailViewModel`.
@@ -114,7 +114,15 @@ consistent with what tapping any other link does.
 `SavedLinksRepository.save()` treats saving an already-saved URL (exact string match, after
 trimming — no scheme/host normalization) as a bump rather than a duplicate: it updates the existing
 row's `savedAtMillis` instead of inserting a second copy, so repeatedly saving the same link keeps
-it "recently saved" and floats it back to the top rather than cluttering the list. Editing a saved
+it "recently saved" and floats it back to the top rather than cluttering the list. Since that means
+tapping Save again on an already-saved link only bumps a timestamp instead of doing anything new,
+`LinkChooserViewModel.isAlreadySaved` looks the URL up via the same exact-match comparison
+(`SavedLinksRepository.isSaved()`) on open and on every edit (cancelling any in-flight lookup so a
+burst of edits can't let a stale one win) — independent of whether *this session* ever tapped Save.
+The chooser's bookmark icon reflects that: filled and tinted `primary` (the same accent as the URL
+text and the Saved Links Open action) once `isAlreadySaved` is true, outline and default-tinted
+otherwise, so a filled bookmark reads as "already saved — tap to refresh its timestamp" rather than
+looking identical to "not saved yet". Editing a saved
 link's URL (`updateUrl`) deliberately leaves `savedAtMillis` alone — correcting the text isn't the
 same event as (re-)saving it, so its place in the day-grouped list doesn't jump just because you
 fixed a typo. Search (`SavedLinksViewModel`) is a plain case-insensitive substring match over the
@@ -125,9 +133,9 @@ groups the (possibly filtered) list into sticky day headers ("Today"/"Yesterday"
 after filtering so a search still reads as day-organized rather than flattening into one list.
 
 Each row's pieces are colored by role instead of all sharing the default content color: the URL
-text is `primary` (reads as a link), the timestamp is muted `onSurfaceVariant`, and the three action
-icons are tinted individually — Edit neutral (`onSurfaceVariant`), Open matches the link's own
-accent (`primary`, since it's what acts on that link), Delete uses `error` — mirroring the same
+text is `primary` (reads as a link), the timestamp is muted `onSurfaceVariant`, and the action
+icons are tinted individually — Edit and Send neutral (`onSurfaceVariant`), Open matches the link's
+own accent (`primary`, since it's what acts on that link), Delete uses `error` — mirroring the same
 role-based coloring already used for the rename dialog's Save/Cancel/Reset in
 `ManageBrowsersScreen`. Search matches are highlighted (`highlightedUrlText` in
 `SavedLinksScreen.kt`) using a fixed Nord `nord13`-on-`nord0` span rather than theme-relative
@@ -135,11 +143,34 @@ colors — a search highlight is meant to pop the same way regardless of dark/li
 text's own primary tint.
 
 **No link preview**: the chooser only shows the domain (parsed from the URL) plus an editable text
-field — it deliberately doesn't render the destination page. There's no `INTERNET` permission in
-the manifest as a result; opening a link never needs one, since that always hands off to the
-chosen browser's own process via an explicit-package `Intent`. The URL field itself is multi-line
-with no line cap and a smaller-than-body text style specifically so a long URL is fully visible by
-wrapping, rather than being truncated or requiring horizontal scrolling.
+field — it deliberately doesn't render the destination page. Opening a link never needs
+`INTERNET` either, since that always hands off to the chosen browser's own process via an
+explicit-package `Intent`. The only thing in the app that does touch the network is the Send
+action below. The URL field itself is multi-line with no line cap and a smaller-than-body text
+style specifically so a long URL is fully visible by wrapping, rather than being truncated or
+requiring horizontal scrolling.
+
+**Send to Notesnook** (`data/remote/NotesnookApi.kt`, `data/repository/NotesnookRepository.kt`):
+a Send icon button — next to Save in the link chooser, and alongside Edit/Open/Delete in each
+Saved Links row — POSTs the link to the user's Notesnook inbox via its fixed Inbox API endpoint
+(`https://inbox.notesnook.com/`), the same integration noter uses to send note text, adapted here
+to send a link (wrapped as an HTML anchor) instead of free-form note content. This is the sole
+reason the manifest carries `INTERNET` at all. The inbox API key and an optional tag ID are
+per-account settings (Notesnook Settings → Inbox → Create Key), stored via a single Preferences
+DataStore (`linker_settings`, see `NotesnookRepository`) rather than Room, since it's two opaque
+strings rather than relational data — and shared globally rather than per-screen, since both send
+sites POST through the same account. Each sent note is titled `Link: <url>` (rather than a dated
+placeholder title), with the note body leading with the send timestamp
+(`yyyy-MM-dd HH:mm - <url>`) — both deliberately deterministic from the link and send time alone,
+unlike noter's dated "Note: NOTER - ..." title, since a link already reads fine as its own title.
+They're configured through one dialog
+(`ui/settings/NotesnookSettingsDialog.kt`) opened from a gear icon in `MainActivity`'s top bar,
+because the chooser and Saved Links tab both need the same key/tag pair rather than each keeping
+its own copy. Send results surface as a `Toast` (`LinkChooserViewModel.toastMessages` /
+`SavedLinksViewModel.toastMessages`, collected via `LaunchedEffect` in each screen) rather than
+noter's inline status line — Toast is already the established feedback pattern here (see
+`LinkInterceptorActivity.openInBrowser`'s "Couldn't open that link" toast), and a persistent status
+line doesn't fit as naturally into either the compact chooser card or a single list row.
 
 ## Theme
 
