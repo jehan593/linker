@@ -1,6 +1,7 @@
 package com.linker.app.interceptor
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Public
@@ -26,15 +28,18 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.linker.app.ui.components.AppIcon
@@ -48,6 +53,13 @@ fun LinkChooserScreen(
 ) {
     val host = remember(viewModel.editableUrl) {
         runCatching { Uri.parse(viewModel.editableUrl).host }.getOrNull()
+    }
+    val context = LocalContext.current
+
+    LaunchedEffect(viewModel) {
+        viewModel.toastMessages.collect { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
     }
 
     Box(
@@ -83,9 +95,17 @@ fun LinkChooserScreen(
                     )
                     IconButton(onClick = { viewModel.saveLink() }) {
                         Icon(
-                            imageVector = if (viewModel.justSaved) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
-                            contentDescription = "Save link"
+                            imageVector = if (viewModel.isAlreadySaved) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
+                            contentDescription = if (viewModel.isAlreadySaved) "Already saved — tap to refresh timestamp" else "Save link",
+                            // Tinted like the link accent (same primary used for the URL text and
+                            // the Open action elsewhere) only once it's actually saved, so the
+                            // filled/outline shape isn't the only cue that a tap now just bumps the
+                            // timestamp instead of creating a new saved entry.
+                            tint = if (viewModel.isAlreadySaved) MaterialTheme.colorScheme.primary else LocalContentColor.current
                         )
+                    }
+                    IconButton(onClick = { viewModel.sendToNotesnook() }, enabled = !viewModel.isSending) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send to Notesnook")
                     }
                 }
 

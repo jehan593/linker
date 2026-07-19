@@ -2,6 +2,7 @@ package com.linker.app.ui.savedlinks
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -26,6 +28,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,12 +60,18 @@ fun SavedLinksScreen() {
     val container = rememberAppContainer()
     val viewModel: SavedLinksViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { SavedLinksViewModel(container.savedLinksRepository) }
+            initializer { SavedLinksViewModel(container.savedLinksRepository, container.notesnookRepository) }
         }
     )
     val links by viewModel.links.collectAsState()
     val context = LocalContext.current
     var editTarget by remember { mutableStateOf<SavedLinkEntity?>(null) }
+
+    LaunchedEffect(viewModel) {
+        viewModel.toastMessages.collect { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Grouped after filtering, so a search still reads as day-organized rather than a flat list.
     // groupBy preserves first-seen key order, and links is already sorted newest-first, so the
@@ -127,6 +136,7 @@ fun SavedLinksScreen() {
                                 )
                             },
                             onEdit = { editTarget = link },
+                            onSend = { viewModel.sendToNotesnook(link) },
                             onDelete = { viewModel.delete(link) }
                         )
                         HorizontalDivider()
@@ -154,6 +164,7 @@ private fun SavedLinkRow(
     searchQuery: String,
     onOpen: () -> Unit,
     onEdit: () -> Unit,
+    onSend: () -> Unit,
     onDelete: () -> Unit
 ) {
     Row(
@@ -176,12 +187,15 @@ private fun SavedLinkRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        // Each action tinted by role rather than all defaulting to the same content color: edit is
-        // neutral, open matches the link's own accent color (it's what acts on that link), delete
-        // uses the error tone as the one destructive action here — same convention as the rename
-        // dialog's Save/Cancel/Reset buttons in ManageBrowsersScreen.
+        // Each action tinted by role rather than all defaulting to the same content color: edit and
+        // send are neutral, open matches the link's own accent color (it's what acts on that link),
+        // delete uses the error tone as the one destructive action here — same convention as the
+        // rename dialog's Save/Cancel/Reset buttons in ManageBrowsersScreen.
         IconButton(onClick = onEdit) {
             Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        IconButton(onClick = onSend) {
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send to Notesnook", tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         IconButton(onClick = onOpen) {
             Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Open", tint = MaterialTheme.colorScheme.primary)

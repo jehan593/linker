@@ -38,7 +38,12 @@ class LinkInterceptorActivity : ComponentActivity() {
                 val viewModel: LinkChooserViewModel = viewModel(
                     factory = viewModelFactory {
                         initializer {
-                            LinkChooserViewModel(url, container.browserPrefsRepository, container.savedLinksRepository)
+                            LinkChooserViewModel(
+                                url,
+                                container.browserPrefsRepository,
+                                container.savedLinksRepository,
+                                container.notesnookRepository
+                            )
                         }
                     }
                 )
