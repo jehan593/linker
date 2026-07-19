@@ -2,6 +2,8 @@ package com.linker.app.ui.savedlinks
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,27 +13,45 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.linker.app.data.db.entity.SavedLinkEntity
 import com.linker.app.ui.rememberAppContainer
-import com.linker.app.util.formatSavedAt
+import com.linker.app.ui.theme.nord0
+import com.linker.app.ui.theme.nord13
+import com.linker.app.util.dayKey
+import com.linker.app.util.dayLabel
+import com.linker.app.util.formatSavedTime
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SavedLinksScreen() {
     val container = rememberAppContainer()
@@ -42,64 +62,189 @@ fun SavedLinksScreen() {
     )
     val links by viewModel.links.collectAsState()
     val context = LocalContext.current
+    var editTarget by remember { mutableStateOf<SavedLinkEntity?>(null) }
 
-    if (links.isEmpty()) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                "No saved links yet — use the bookmark icon in the link chooser to save one.",
-                style = MaterialTheme.typography.bodyMedium
-            )
+    // Grouped after filtering, so a search still reads as day-organized rather than a flat list.
+    // groupBy preserves first-seen key order, and links is already sorted newest-first, so the
+    // resulting day groups come out newest-first too without any extra sorting here.
+    val groupedByDay = remember(links) { links.groupBy { dayKey(it.savedAtMillis) } }
+
+    Column(Modifier.fillMaxSize()) {
+        OutlinedTextField(
+            value = viewModel.searchText,
+            onValueChange = viewModel::onSearchChanged,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            placeholder = { Text("Search saved links") },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            trailingIcon = {
+                if (viewModel.searchText.isNotEmpty()) {
+                    IconButton(onClick = { viewModel.onSearchChanged("") }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                    }
+                }
+            },
+            singleLine = true
+        )
+
+        if (links.isEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = if (viewModel.searchText.isEmpty())
+                        "No saved links yet — use the bookmark icon in the link chooser to save one."
+                    else
+                        "No saved links match \"${viewModel.searchText}\".",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        } else {
+            LazyColumn(Modifier.fillMaxSize()) {
+                groupedByDay.forEach { (day, linksForDay) ->
+                    stickyHeader(key = day.toString()) {
+                        Text(
+                            text = dayLabel(day),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface)
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
+                    items(linksForDay, key = { it.id }) { link ->
+                        SavedLinkRow(
+                            link = link,
+                            searchQuery = viewModel.searchText,
+                            onOpen = {
+                                // Goes through whatever is currently the default browser handler —
+                                // if that's still Linker, this deliberately re-opens the chooser
+                                // rather than a fixed browser, consistent with tapping any link.
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            },
+                            onEdit = { editTarget = link },
+                            onDelete = { viewModel.delete(link) }
+                        )
+                        HorizontalDivider()
+                    }
+                }
+            }
         }
-        return
     }
 
-    LazyColumn(Modifier.fillMaxSize()) {
-        items(links, key = { it.id }) { link ->
-            SavedLinkRow(
-                link = link,
-                onOpen = {
-                    // Goes through whatever is currently the default browser handler — if that's
-                    // still Linker, this deliberately re-opens the chooser rather than a fixed
-                    // browser, consistent with what tapping any other link does.
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
-                },
-                onDelete = { viewModel.delete(link) }
-            )
-            HorizontalDivider()
-        }
+    editTarget?.let { link ->
+        EditSavedLinkDialog(
+            link = link,
+            onDismiss = { editTarget = null },
+            onSave = { newUrl ->
+                viewModel.edit(link, newUrl)
+                editTarget = null
+            }
+        )
     }
 }
 
 @Composable
-private fun SavedLinkRow(link: SavedLinkEntity, onOpen: () -> Unit, onDelete: () -> Unit) {
+private fun SavedLinkRow(
+    link: SavedLinkEntity,
+    searchQuery: String,
+    onOpen: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
+            // No line cap — a long URL wraps in full rather than being truncated, at a smaller
+            // style than the app's usual body text so it stays reasonably compact while wrapping.
+            // Colored as `primary` (the app's link-accent color) so it reads as a link rather than
+            // plain body text, distinct from the muted timestamp below and the action icons.
             Text(
-                text = link.url,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                text = highlightedUrlText(link.url, searchQuery),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = formatSavedAt(link.savedAtMillis),
+                text = formatSavedTime(link.savedAtMillis),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        // Each action tinted by role rather than all defaulting to the same content color: edit is
+        // neutral, open matches the link's own accent color (it's what acts on that link), delete
+        // uses the error tone as the one destructive action here — same convention as the rename
+        // dialog's Save/Cancel/Reset buttons in ManageBrowsersScreen.
+        IconButton(onClick = onEdit) {
+            Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         IconButton(onClick = onOpen) {
-            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Open")
+            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Open", tint = MaterialTheme.colorScheme.primary)
         }
         IconButton(onClick = onDelete) {
-            Icon(Icons.Filled.Delete, contentDescription = "Delete")
+            Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
         }
     }
+}
+
+/**
+ * Highlights every case-insensitive occurrence of [query] in [url] with a fixed highlighter-yellow
+ * background (Nord's nord13) and dark (nord0) text — deliberately not theme-relative colors, since
+ * a search highlight is meant to pop the same way regardless of dark/light mode or the link text's
+ * own (primary-tinted) color.
+ */
+private fun highlightedUrlText(url: String, query: String): AnnotatedString {
+    if (query.isBlank()) return AnnotatedString(url)
+    return buildAnnotatedString {
+        var index = 0
+        while (index < url.length) {
+            val matchIndex = url.indexOf(query, index, ignoreCase = true)
+            if (matchIndex < 0) {
+                append(url.substring(index))
+                break
+            }
+            append(url.substring(index, matchIndex))
+            withStyle(SpanStyle(background = nord13, color = nord0, fontWeight = FontWeight.Bold)) {
+                append(url.substring(matchIndex, matchIndex + query.length))
+            }
+            index = matchIndex + query.length
+        }
+    }
+}
+
+@Composable
+private fun EditSavedLinkDialog(
+    link: SavedLinkEntity,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var text by remember(link.id) { mutableStateOf(link.url) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit link") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                textStyle = MaterialTheme.typography.bodyMedium,
+                label = { Text("Link") }
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(text) }) {
+                Text("Save", color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    )
 }
