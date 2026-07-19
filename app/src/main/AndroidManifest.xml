@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Deliberately no INTERNET permission: Linker never fetches a URL itself — opening a link
+         always hands off to the chosen browser app's own process. -->
+
+    <queries>
+        <!-- Needed under Android 11+ package visibility to enumerate other browsers via
+             PackageManager.queryIntentActivities — matches any app that declares itself able to
+             open generic https links, which is exactly the set we want to offer as choices. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".LinkerApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Linker">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.Linker">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            This is the activity that makes Linker eligible to be picked as the system's default
+            browser app (Settings > Apps > Default apps > Browser app, or the RoleManager
+            ROLE_BROWSER flow): it resolves ACTION_VIEW for bare http/https with no host
+            restriction, which is what Android requires to treat an app as a "browser" candidate
+            rather than a single-domain deep-link handler. It deliberately does NOT set
+            android:autoVerify — that mechanism is for Android App Links to a specific verified
+            domain, not for a general-purpose browser role.
+
+            android:taskAffinity="" is what keeps this a lightweight popup instead of a jarring app
+            switch: without it, this activity shares MainActivity's default task affinity
+            (the package name), so if MainActivity's task already exists in the background (the
+            user opened Manage Browsers earlier, say), Android would bring that *whole* task
+            forward instead of just showing this transient chooser — which looks and feels like
+            switching away to the Linker app itself. An empty affinity forces every launch of this
+            activity into its own fresh, always-excluded-from-recents task that vanishes on
+            finish(), leaving whatever app the link was tapped from — and any backgrounded
+            MainActivity task — completely undisturbed.
+        -->
+        <activity
+            android:name=".interceptor.LinkInterceptorActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Linker.Transparent">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>
