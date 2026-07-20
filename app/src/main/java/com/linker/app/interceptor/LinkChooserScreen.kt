@@ -1,6 +1,7 @@
 package com.linker.app.interceptor
 
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -20,9 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
@@ -39,9 +37,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.linker.app.R
 import com.linker.app.ui.components.AppIcon
 
 @Composable
@@ -55,6 +57,7 @@ fun LinkChooserScreen(
         runCatching { Uri.parse(viewModel.editableUrl).host }.getOrNull()
     }
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
 
     LaunchedEffect(viewModel) {
         viewModel.toastMessages.collect { message ->
@@ -84,7 +87,7 @@ fun LinkChooserScreen(
         ) {
             Column(Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Public, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(painterResource(R.drawable.ic_public), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = host ?: "Open link",
@@ -95,7 +98,7 @@ fun LinkChooserScreen(
                     )
                     IconButton(onClick = { viewModel.saveLink() }) {
                         Icon(
-                            imageVector = if (viewModel.isAlreadySaved) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
+                            painter = painterResource(if (viewModel.isAlreadySaved) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border),
                             contentDescription = if (viewModel.isAlreadySaved) "Already saved — tap to refresh timestamp" else "Save link",
                             // Tinted like the link accent (same primary used for the URL text and
                             // the Open action elsewhere) only once it's actually saved, so the
@@ -103,6 +106,17 @@ fun LinkChooserScreen(
                             // timestamp instead of creating a new saved entry.
                             tint = if (viewModel.isAlreadySaved) MaterialTheme.colorScheme.primary else LocalContentColor.current
                         )
+                    }
+                    IconButton(onClick = {
+                        clipboardManager.setText(AnnotatedString(viewModel.editableUrl))
+                        // Android 13+ (API 33) already shows its own system "Copied" confirmation
+                        // for clipboard writes — an app-level toast on top of that would just be a
+                        // second, redundant confirmation for the same action.
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                            Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
+                        Icon(painterResource(R.drawable.ic_content_copy), contentDescription = "Copy link")
                     }
                     IconButton(onClick = { viewModel.sendToNotesnook() }, enabled = !viewModel.isSending) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send to Notesnook")

@@ -16,7 +16,8 @@ URL directly via an explicit package intent.
 ## Commands
 
 ```sh
-./gradlew assembleDebug      # build app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleRelease    # build app/build/outputs/apk/release/app-release.apk (R8-minified, resource-shrunk — what CI ships)
+./gradlew assembleDebug      # build app/build/outputs/apk/debug/app-debug.apk (local iteration only)
 ./gradlew build              # full build incl. lint/checks
 ```
 
@@ -32,7 +33,20 @@ URL directly via an explicit package intent.
   own tag/release rather than overwriting one shared release — same setup as ownscreen/noter.
   `app/debug.keystore` is a committed keystore (not the AGP-generated one) so CI and local builds
   always sign with the same key; a fresh CI-generated debug keystore each run would give every
-  release a different signature and break in-place updates.
+  release a different signature and break in-place updates. The `release` build type reuses that
+  same pinned `debug.keystore` signing key (see `app/build.gradle.kts`) so in-place updates via
+  Obtainium keep working even though the shipped variant is release, not debug.
+- The release build is minified (`isMinifyEnabled`), resource-shrunk (`isShrinkResources`), and
+  ABI-filtered to `arm64-v8a`/`armeabi-v7a` (real phones only — no distributed APK needs x86/
+  x86_64 emulator variants) — same lightest-possible-APK pass done for ownscreen/noter. The two
+  Martian Mono weights actually used (regular, medium — no bold; the one `FontWeight.Bold` use in
+  `SavedLinksScreen.kt`'s search highlight relies on synthesized/faux bold) are Latin-subset from
+  the full Nerd Font (11k+ glyphs down to the ~345 codepoints/545 glyphs the app can render),
+  matching the subset shipped by the sibling apps. The five icons the base
+  `androidx.compose.material3`/`material-icons-core` set doesn't include (Bookmark, BookmarkBorder,
+  DragHandle, Public, the AutoMirrored OpenInNew) are vendored as plain XML vector drawables under
+  `res/drawable/ic_*.xml` instead of pulling in `material-icons-extended` (a large icon pack whose
+  ~1000 other icons the app never uses) — neither ownscreen nor noter carry that dependency either.
 
 ## Architecture
 

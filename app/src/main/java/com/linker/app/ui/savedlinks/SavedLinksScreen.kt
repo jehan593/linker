@@ -2,9 +2,11 @@ package com.linker.app.ui.savedlinks
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -36,7 +37,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -46,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.linker.app.R
 import com.linker.app.data.db.entity.SavedLinkEntity
 import com.linker.app.ui.rememberAppContainer
 import com.linker.app.ui.theme.nord0
@@ -65,6 +69,7 @@ fun SavedLinksScreen() {
     )
     val links by viewModel.links.collectAsState()
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     var editTarget by remember { mutableStateOf<SavedLinkEntity?>(null) }
 
     LaunchedEffect(viewModel) {
@@ -136,6 +141,15 @@ fun SavedLinksScreen() {
                                 )
                             },
                             onEdit = { editTarget = link },
+                            onCopy = {
+                                clipboardManager.setText(AnnotatedString(link.url))
+                                // Android 13+ (API 33) already shows its own system "Copied"
+                                // confirmation for clipboard writes — an app-level toast on top of
+                                // that would just be a second, redundant confirmation.
+                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                                    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                                }
+                            },
                             onSend = { viewModel.sendToNotesnook(link) },
                             onDelete = { viewModel.delete(link) }
                         )
@@ -164,44 +178,54 @@ private fun SavedLinkRow(
     searchQuery: String,
     onOpen: () -> Unit,
     onEdit: () -> Unit,
+    onCopy: () -> Unit,
     onSend: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Column(Modifier.weight(1f)) {
-            // No line cap — a long URL wraps in full rather than being truncated, at a smaller
-            // style than the app's usual body text so it stays reasonably compact while wrapping.
-            // Colored as `primary` (the app's link-accent color) so it reads as a link rather than
-            // plain body text, distinct from the muted timestamp below and the action icons.
-            Text(
-                text = highlightedUrlText(link.url, searchQuery),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = formatSavedTime(link.savedAtMillis),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        // Each action tinted by role rather than all defaulting to the same content color: edit and
-        // send are neutral, open matches the link's own accent color (it's what acts on that link),
-        // delete uses the error tone as the one destructive action here — same convention as the
-        // rename dialog's Save/Cancel/Reset buttons in ManageBrowsersScreen.
-        IconButton(onClick = onEdit) {
-            Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        IconButton(onClick = onSend) {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send to Notesnook", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        IconButton(onClick = onOpen) {
-            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Open", tint = MaterialTheme.colorScheme.primary)
-        }
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+        // No line cap — a long URL wraps in full rather than being truncated, at a smaller
+        // style than the app's usual body text so it stays reasonably compact while wrapping.
+        // Colored as `primary` (the app's link-accent color) so it reads as a link rather than
+        // plain body text, distinct from the muted timestamp below and the action icons.
+        Text(
+            text = highlightedUrlText(link.url, searchQuery),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = formatSavedTime(link.savedAtMillis),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        // Actions on their own row below the URL rather than squeezed alongside it — the wide
+        // URL column was crowding five icons into a thin trailing strip. Kept right-aligned so
+        // this row still visually reads as "belonging to" the link text above it.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Each action tinted by role rather than all defaulting to the same content color: edit,
+            // copy, and send are neutral, open matches the link's own accent color (it's what acts on
+            // that link), delete uses the error tone as the one destructive action here — same
+            // convention as the rename dialog's Save/Cancel/Reset buttons in ManageBrowsersScreen.
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = onCopy) {
+                Icon(painterResource(R.drawable.ic_content_copy), contentDescription = "Copy link", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = onSend) {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send to Notesnook", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = onOpen) {
+                Icon(painterResource(R.drawable.ic_open_in_new), contentDescription = "Open", tint = MaterialTheme.colorScheme.primary)
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }
