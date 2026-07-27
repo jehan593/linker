@@ -208,5 +208,6 @@ undoes something" signal, since it discards the custom name back to the system o
 ## Fonts
 
 Martian Mono Nerd Font ships as bundled `.ttf`s under `res/font/` (license in
-`MARTIAN_MONO_LICENSE.txt` at repo root), applied via `ui/theme/Type.kt` exactly like
+`app/licenses/MARTIAN_MONO_LICENSE.txt` — kept out of `res/` since Android's resource merger
+rejects non-`.xml`/`.ttf`/`.ttc`/`.otf` files there), applied via `ui/theme/Type.kt` exactly like
 ownscreen/noter.
