@@ -2,6 +2,7 @@
 
 [![Build APK](https://github.com/jehan593/linker/actions/workflows/build-apk.yml/badge.svg)](https://github.com/jehan593/linker/actions/workflows/build-apk.yml)
 [![Latest release](https://img.shields.io/github/v/release/jehan593/linker)](https://github.com/jehan593/linker/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Linker makes itself the default handler for `http`/`https` links on Android and shows its own
 chooser instead of opening a browser directly — edit the URL, save it for later, or send it
@@ -41,6 +42,6 @@ Kotlin, Jetpack Compose, Material 3, Room. Manual dependency injection (no DI fr
 
 ## License
 
-App source is unlicensed (all rights reserved). The bundled Martian Mono Nerd Font is licensed
-separately under the SIL Open Font License 1.1 — see
+MIT — see [`LICENSE`](LICENSE). The bundled Martian Mono Nerd Font is licensed separately under
+the SIL Open Font License 1.1 — see
 [`app/licenses/MARTIAN_MONO_LICENSE.txt`](app/licenses/MARTIAN_MONO_LICENSE.txt).
