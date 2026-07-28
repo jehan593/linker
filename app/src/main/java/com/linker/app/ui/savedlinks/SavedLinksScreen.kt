@@ -11,11 +11,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
@@ -46,7 +45,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -266,10 +264,6 @@ private fun EditSavedLinkDialog(
 ) {
     var text by remember(link.id) { mutableStateOf(link.url) }
 
-    fun submitEdit() {
-        if (text.isNotBlank()) onSave(text)
-    }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit link") },
@@ -279,13 +273,11 @@ private fun EditSavedLinkDialog(
                 onValueChange = { text = it },
                 textStyle = MaterialTheme.typography.bodyMedium,
                 label = { Text("Link") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { submitEdit() })
+                modifier = Modifier.fillMaxWidth().imePadding()
             )
         },
         confirmButton = {
-            TextButton(onClick = { submitEdit() }) {
+            TextButton(onClick = { onSave(text) }) {
                 Text("Save", color = MaterialTheme.colorScheme.primary)
             }
         },
