@@ -7,7 +7,7 @@
 Linker catches the links you tap on Android and shows a small chooser first: fix the URL, save it
 for later, or send it straight to the browser you pick.
 
-> FYI: this project was vibe-coded
+> FYI: this project is fully vibe coded
 
 ## Features
 
