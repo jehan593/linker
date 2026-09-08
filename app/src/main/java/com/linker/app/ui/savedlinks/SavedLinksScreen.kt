@@ -9,10 +9,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -21,14 +24,15 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Card
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -47,6 +51,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -79,9 +85,8 @@ fun SavedLinksScreen() {
         }
     }
 
-    // Grouped after filtering, so a search still reads as day-organized rather than a flat list.
-    // groupBy preserves first-seen key order, and links is already sorted newest-first, so the
-    // resulting day groups come out newest-first too without any extra sorting here.
+    // Grouping happens after filtering so search keeps day headers. Links arrive newest-first,
+    // so the groups come out newest-first too without extra sorting.
     val groupedByDay = remember(links) { links.groupBy { dayKey(it.savedAtMillis) } }
 
     Column(Modifier.fillMaxSize()) {
@@ -108,7 +113,7 @@ fun SavedLinksScreen() {
             ) {
                 Text(
                     text = if (viewModel.searchText.isEmpty())
-                        "No saved links yet — use the bookmark icon in the link chooser to save one."
+                        "No saved links yet. Use the bookmark icon in the chooser to save one."
                     else
                         "No saved links match \"${viewModel.searchText}\".",
                     style = MaterialTheme.typography.bodyMedium
@@ -133,9 +138,8 @@ fun SavedLinksScreen() {
                             link = link,
                             searchQuery = viewModel.searchText,
                             onOpen = {
-                                // Goes through whatever is currently the default browser handler —
-                                // if that's still Linker, this deliberately re-opens the chooser
-                                // rather than a fixed browser, consistent with tapping any link.
+                                // Opens with whatever is currently the default handler — if that's still Linker,
+                                // this re-opens the chooser, consistent with tapping any link.
                                 context.startActivity(
                                     Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
                                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -144,12 +148,17 @@ fun SavedLinksScreen() {
                             onEdit = { editTarget = link },
                             onCopy = {
                                 clipboardManager.setText(AnnotatedString(link.url))
-                                // Android 13+ (API 33) already shows its own system "Copied"
-                                // confirmation for clipboard writes — an app-level toast on top of
-                                // that would just be a second, redundant confirmation.
+                                // Android 13+ shows its own "Copied" confirmation for clipboard writes.
                                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                                     Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
                                 }
+                            },
+                            onShare = {
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, link.url)
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, null))
                             },
                             onSend = { viewModel.sendToNotesnook(link) },
                             onDelete = { viewModel.delete(link) }
@@ -180,16 +189,15 @@ private fun SavedLinkRow(
     onOpen: () -> Unit,
     onEdit: () -> Unit,
     onCopy: () -> Unit,
+    onShare: () -> Unit,
     onSend: () -> Unit,
     onDelete: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        // No line cap — a long URL wraps in full rather than being truncated, at a smaller
-        // style than the app's usual body text so it stays reasonably compact while wrapping.
-        // Colored as `primary` (the app's link-accent color) so it reads as a link rather than
-        // plain body text, distinct from the muted timestamp below and the action icons.
+        // Long URLs wrap in full (no truncation), tinted as a link so they read as links
+        // rather than plain text, distinct from the muted timestamp and action icons.
         Text(
             text = highlightedUrlText(link.url, searchQuery),
             style = MaterialTheme.typography.bodyMedium,
@@ -200,23 +208,22 @@ private fun SavedLinkRow(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        // Actions on their own row below the URL rather than squeezed alongside it — the wide
-        // URL column was crowding five icons into a thin trailing strip. Kept right-aligned so
-        // this row still visually reads as "belonging to" the link text above it.
+        // Actions on their own row below the URL, right-aligned so they read as belonging to it.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Each action tinted by role rather than all defaulting to the same content color: edit,
-            // copy, and send are neutral, open matches the link's own accent color (it's what acts on
-            // that link), delete uses the error tone as the one destructive action here — same
-            // convention as the rename dialog's Save/Cancel/Reset buttons in ManageBrowsersScreen.
+            // Tinted by role: edit/copy/share/send are neutral, open matches the link accent,
+            // delete uses the error color as the one destructive action.
             IconButton(onClick = onEdit) {
                 Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = onCopy) {
                 Icon(painterResource(R.drawable.ic_content_copy), contentDescription = "Copy link", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = onShare) {
+                Icon(Icons.Filled.Share, contentDescription = "Share link", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = onSend) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send to Notesnook", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -232,10 +239,8 @@ private fun SavedLinkRow(
 }
 
 /**
- * Highlights every case-insensitive occurrence of [query] in [url] with a fixed highlighter-yellow
- * background (Nord's nord13) and dark (nord0) text — deliberately not theme-relative colors, since
- * a search highlight is meant to pop the same way regardless of dark/light mode or the link text's
- * own (primary-tinted) color.
+ * Highlights every case-insensitive match of [query] in [url] with a fixed highlighter
+ * style (Nord nord13 background, nord0 text) so it pops the same in dark or light mode.
  */
 private fun highlightedUrlText(url: String, query: String): AnnotatedString {
     if (query.isBlank()) return AnnotatedString(url)
@@ -264,27 +269,43 @@ private fun EditSavedLinkDialog(
 ) {
     var text by remember(link.id) { mutableStateOf(link.url) }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit link") },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                textStyle = MaterialTheme.typography.bodyMedium,
-                label = { Text("Link") },
-                modifier = Modifier.fillMaxWidth().imePadding()
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(text) }) {
-                Text("Save", color = MaterialTheme.colorScheme.primary)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 480.dp)
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Edit link",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Filled.Close, contentDescription = "Close")
+                    }
+                }
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    label = { Text("Link") },
+                    modifier = Modifier.fillMaxWidth().imePadding()
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledTonalButton(onClick = { onSave(text) }) {
+                        Text("Save")
+                    }
+                }
             }
         }
-    )
+    }
 }

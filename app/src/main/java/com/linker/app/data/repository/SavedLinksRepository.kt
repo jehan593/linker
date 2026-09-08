@@ -8,16 +8,13 @@ class SavedLinksRepository(private val savedLinkDao: SavedLinkDao) {
 
     fun observeAll(): Flow<List<SavedLinkEntity>> = savedLinkDao.observeAll()
 
-    /** Same exact-match-after-trimming comparison as [save], so this agrees with whether calling
-     *  [save] on this URL would insert a new row or just bump an existing one's timestamp. */
+    /** Same exact-match check as [save], so this agrees whether saving would bump or insert. */
     suspend fun isSaved(url: String): Boolean = savedLinkDao.findByUrl(url.trim()) != null
 
     /**
-     * Saving a URL that's already saved (exact match, after trimming) bumps its existing row's
-     * timestamp instead of inserting a duplicate — repeatedly saving the same link is meant to
-     * keep it "recently saved" and bring it back to the top, not clutter the list with copies of
-     * itself. Comparison is a plain string match (no scheme/host normalization) so behavior stays
-     * simple and predictable: two URLs are "the same" only if their text is identical.
+     * Saving a URL that's already saved (exact match after trimming) bumps its timestamp instead
+     * of inserting a duplicate — re-saving a link keeps it "recently saved" without cluttering
+     * the list with copies.
      */
     suspend fun save(url: String, savedAtMillis: Long = System.currentTimeMillis()) {
         val trimmed = url.trim()
@@ -29,8 +26,7 @@ class SavedLinksRepository(private val savedLinkDao: SavedLinkDao) {
         }
     }
 
-    /** Edits an existing saved link's URL text in place — keeps its original savedAtMillis, since
-     *  correcting a link isn't the same event as (re-)saving it. */
+    /** Edits the URL in place; keeps the original save time. */
     suspend fun updateUrl(link: SavedLinkEntity, newUrl: String) {
         savedLinkDao.update(link.copy(url = newUrl.trim()))
     }

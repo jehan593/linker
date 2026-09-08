@@ -2,12 +2,20 @@ package com.linker.app.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,62 +26,70 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
 /**
- * Shared across the app (opened from MainActivity's top bar) since both the link chooser and the
- * saved links list send through the same account — there's only ever one API key/tag pair to
- * configure, not one per screen.
+ * Full-page Notesnook settings, opened from MainActivity's top bar gear icon. One shared API
+ * key/tag pair is used by both the link chooser and the saved links list, so it's stored here.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotesnookSettingsDialog(
+fun NotesnookSettingsScreen(
     initialApiKey: String,
     initialTagId: String,
-    onDismiss: () -> Unit,
+    onBack: () -> Unit,
     onSave: (apiKey: String, tagId: String) -> Unit
 ) {
     var apiKey by remember { mutableStateOf(initialApiKey) }
     var tagId by remember { mutableStateOf(initialTagId) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Notesnook") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "From Notesnook: Settings > Inbox > Create Key.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = apiKey,
-                    onValueChange = { apiKey = it },
-                    label = { Text("Inbox API key") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = tagId,
-                    onValueChange = { tagId = it },
-                    label = { Text("Tag ID (optional)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text(
-                    "Right-click a tag in Notesnook and choose Copy ID. Sent links are titled " +
-                        "\"Link: <url>\", with the send time and link in the note body.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(apiKey, tagId) }) {
-                Text("Save", color = MaterialTheme.colorScheme.primary)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Notesnook") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                "From Notesnook: Settings > Inbox > Create Key.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedTextField(
+                value = apiKey,
+                onValueChange = { apiKey = it },
+                label = { Text("Inbox API key") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = tagId,
+                onValueChange = { tagId = it },
+                label = { Text("Tag ID (optional)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                "Optional. Right-click a tag in Notesnook and choose Copy ID, then paste it here.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(
+                onClick = { onSave(apiKey.trim(), tagId.trim()) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Save")
             }
         }
-    )
+    }
 }

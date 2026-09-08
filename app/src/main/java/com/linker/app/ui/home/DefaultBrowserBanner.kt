@@ -21,7 +21,7 @@ fun DefaultBrowserBanner(onRequestDefault: () -> Unit) {
         Column(Modifier.padding(16.dp)) {
             Text("Linker isn't your default browser yet", style = MaterialTheme.typography.titleSmall)
             Text(
-                "Set it as default so links you tap anywhere open through this chooser first.",
+                "Make it default so links you tap anywhere open this chooser first.",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
             )

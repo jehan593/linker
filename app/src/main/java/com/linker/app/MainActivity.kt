@@ -2,8 +2,15 @@ package com.linker.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,15 +42,14 @@ import com.linker.app.ui.browsers.ManageBrowsersScreen
 import com.linker.app.ui.home.DefaultBrowserBanner
 import com.linker.app.ui.rememberAppContainer
 import com.linker.app.ui.savedlinks.SavedLinksScreen
-import com.linker.app.ui.settings.NotesnookSettingsDialog
+import com.linker.app.ui.settings.NotesnookSettingsScreen
 import com.linker.app.ui.theme.LinkerTheme
 import com.linker.app.util.DefaultBrowserRole
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    // Result is ignored directly — the ON_RESUME check below re-reads the role state either way,
-    // which also correctly covers the user backing out without choosing anything.
+    // Result is ignored; on resume the role state is re-read below.
     private val requestDefaultBrowser =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
 
@@ -61,6 +67,11 @@ class MainActivity : ComponentActivity() {
                     .collectAsState(initial = NotesnookSettings(apiKey = null, tagId = null))
                 val coroutineScope = rememberCoroutineScope()
 
+                // Back on the settings page returns to the tabs instead of closing the app.
+                BackHandler(enabled = isNotesnookSettingsOpen) {
+                    isNotesnookSettingsOpen = false
+                }
+
                 DisposableEffect(Unit) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
@@ -72,64 +83,79 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    Scaffold(
-                        topBar = {
-                            TopAppBar(
-                                title = { Text("Linker") },
-                                actions = {
-                                    IconButton(onClick = { isNotesnookSettingsOpen = true }) {
-                                        Icon(Icons.Filled.Settings, contentDescription = "Notesnook settings")
+                    AnimatedContent(
+                        targetState = isNotesnookSettingsOpen,
+                        transitionSpec = {
+                            // Settings slides in from the right, like a normal screen transition.
+                            if (targetState) {
+                                (slideInHorizontally(initialOffsetX = { it }) + fadeIn()) togetherWith
+                                    (slideOutHorizontally(targetOffsetX = { -it / 3 }) + fadeOut())
+                            } else {
+                                (slideInHorizontally(initialOffsetX = { -it / 3 }) + fadeIn()) togetherWith
+                                    (slideOutHorizontally(targetOffsetX = { it }) + fadeOut())
+                            }
+                        },
+                        label = "notesnookSettings"
+                    ) { settingsOpen ->
+                        if (settingsOpen) {
+                            NotesnookSettingsScreen(
+                                initialApiKey = notesnookSettings.apiKey.orEmpty(),
+                                initialTagId = notesnookSettings.tagId.orEmpty(),
+                                onBack = { isNotesnookSettingsOpen = false },
+                                onSave = { apiKey, tagId ->
+                                    coroutineScope.launch {
+                                        container.notesnookRepository.saveSettings(apiKey, tagId)
+                                        isNotesnookSettingsOpen = false
                                     }
                                 }
                             )
-                        }
-                    ) { padding ->
-                        Column(
-                            modifier = Modifier
-                                .padding(padding)
-                                .fillMaxSize()
-                        ) {
-                            if (!isDefaultBrowser) {
-                                DefaultBrowserBanner(
-                                    onRequestDefault = {
-                                        requestDefaultBrowser.launch(DefaultBrowserRole.requestIntent(this@MainActivity))
+                        } else {
+                            Scaffold(
+                                topBar = {
+                                    TopAppBar(
+                                        title = { Text("Linker") },
+                                        actions = {
+                                            IconButton(onClick = { isNotesnookSettingsOpen = true }) {
+                                                Icon(Icons.Filled.Settings, contentDescription = "Notesnook settings")
+                                            }
+                                        }
+                                    )
+                                }
+                            ) { padding ->
+                                Column(
+                                    modifier = Modifier
+                                        .padding(padding)
+                                        .fillMaxSize()
+                                ) {
+                                    if (!isDefaultBrowser) {
+                                        DefaultBrowserBanner(
+                                            onRequestDefault = {
+                                                requestDefaultBrowser.launch(DefaultBrowserRole.requestIntent(this@MainActivity))
+                                            }
+                                        )
                                     }
-                                )
-                            }
-                            TabRow(selectedTabIndex = selectedTab) {
-                                Tab(
-                                    selected = selectedTab == 0,
-                                    onClick = { selectedTab = 0 },
-                                    text = { Text("Browsers") }
-                                )
-                                Tab(
-                                    selected = selectedTab == 1,
-                                    onClick = { selectedTab = 1 },
-                                    text = { Text("Saved Links") }
-                                )
-                            }
-                            Box(Modifier.weight(1f)) {
-                                when (selectedTab) {
-                                    0 -> ManageBrowsersScreen()
-                                    else -> SavedLinksScreen()
+                                    TabRow(selectedTabIndex = selectedTab) {
+                                        Tab(
+                                            selected = selectedTab == 0,
+                                            onClick = { selectedTab = 0 },
+                                            text = { Text("Browsers") }
+                                        )
+                                        Tab(
+                                            selected = selectedTab == 1,
+                                            onClick = { selectedTab = 1 },
+                                            text = { Text("Saved Links") }
+                                        )
+                                    }
+                                    Box(Modifier.weight(1f)) {
+                                        when (selectedTab) {
+                                            0 -> ManageBrowsersScreen()
+                                            else -> SavedLinksScreen()
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                }
-
-                if (isNotesnookSettingsOpen) {
-                    NotesnookSettingsDialog(
-                        initialApiKey = notesnookSettings.apiKey.orEmpty(),
-                        initialTagId = notesnookSettings.tagId.orEmpty(),
-                        onDismiss = { isNotesnookSettingsOpen = false },
-                        onSave = { apiKey, tagId ->
-                            coroutineScope.launch {
-                                container.notesnookRepository.saveSettings(apiKey.trim(), tagId.trim())
-                                isNotesnookSettingsOpen = false
-                            }
-                        }
-                    )
                 }
             }
         }

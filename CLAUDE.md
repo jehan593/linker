@@ -10,8 +10,10 @@ Nerd Font, Jetpack Compose UI (matches ownscreen/noter's visual identity — see
 `../ownscreen`, `../noter`). Package `com.linker.app`, minSdk 26.
 
 Core flow: user taps any link anywhere on the device → `LinkInterceptorActivity` shows a chooser
-card (edit the URL, save it, or pick a browser) → the chosen browser opens the (possibly edited)
-URL directly via an explicit package intent.
+card (edit the URL, or pick a browser) → the chosen browser opens the (possibly edited)
+URL directly via an explicit package intent. The chooser's header has a single close (X) icon in
+its top-right corner (no footer Cancel/Manage buttons), and a right-aligned row of action icons —
+Save, Copy, Share, Send to Notesnook — sits at the bottom of the card below the browser list.
 
 ## Commands
 
@@ -65,7 +67,7 @@ constructed directly via `viewModelFactory { initializer { ... } }` at the call 
   back from the system role/settings screen without needing a manual refresh).
 - `LinkInterceptorActivity` — what actually fires when a link is tapped elsewhere on the device
   (see manifest intent-filter below). Transient and translucent (`Theme.Linker.Transparent`):
-  every exit path (pick a browser, cancel, jump to Manage Browsers) calls `finish()`. Deliberately
+  every exit path (pick a browser, close) calls `finish()`. Deliberately
   *not* `launchMode="singleTask"` — plain standard launch mode means each tap gets its own short-
   lived instance instead of needing `onNewIntent` plumbing to refresh a reused one. Also declares
   `android:taskAffinity=""` (see the manifest comment) — without it, this activity shares
@@ -148,8 +150,9 @@ after filtering so a search still reads as day-organized rather than flattening 
 
 Each row's pieces are colored by role instead of all sharing the default content color: the URL
 text is `primary` (reads as a link), the timestamp is muted `onSurfaceVariant`, and the action
-icons are tinted individually — Edit and Send neutral (`onSurfaceVariant`), Open matches the link's
-own accent (`primary`, since it's what acts on that link), Delete uses `error` — mirroring the same
+icons are tinted individually — Edit, Copy, Share and Send neutral (`onSurfaceVariant`), Open
+matches the link's own accent (`primary`, since it's what acts on that link), Delete uses `error`
+— mirroring the same
 role-based coloring already used for the rename dialog's Save/Cancel/Reset in
 `ManageBrowsersScreen`. Search matches are highlighted (`highlightedUrlText` in
 `SavedLinksScreen.kt`) using a fixed Nord `nord13`-on-`nord0` span rather than theme-relative
@@ -160,9 +163,9 @@ text's own primary tint.
 field — it deliberately doesn't render the destination page. Opening a link never needs
 `INTERNET` either, since that always hands off to the chosen browser's own process via an
 explicit-package `Intent`. The only thing in the app that does touch the network is the Send
-action below. The URL field itself is multi-line with no line cap and a smaller-than-body text
-style specifically so a long URL is fully visible by wrapping, rather than being truncated or
-requiring horizontal scrolling.
+action below. The URL field uses a smaller-than-body text style and caps at 4 lines: a longer URL
+scrolls inside the field itself rather than growing the whole card — otherwise a wrapping monster
+URL would push the browser list and the footer action icons out of the popup.
 
 **Send to Notesnook** (`data/remote/NotesnookApi.kt`, `data/repository/NotesnookRepository.kt`):
 a Send icon button — next to Save in the link chooser, and alongside Edit/Open/Delete in each
@@ -177,8 +180,9 @@ sites POST through the same account. Each sent note is titled `Link: <url>` (rat
 placeholder title), with the note body leading with the send timestamp
 (`yyyy-MM-dd HH:mm - <url>`) — both deliberately deterministic from the link and send time alone,
 unlike noter's dated "Note: NOTER - ..." title, since a link already reads fine as its own title.
-They're configured through one dialog
-(`ui/settings/NotesnookSettingsDialog.kt`) opened from a gear icon in `MainActivity`'s top bar,
+They're configured through one full-page screen
+(`ui/settings/NotesnookSettingsScreen.kt`) reached from a gear icon in `MainActivity`'s top bar,
+with a back arrow to return,
 because the chooser and Saved Links tab both need the same key/tag pair rather than each keeping
 its own copy. Send results surface as a `Toast` (`LinkChooserViewModel.toastMessages` /
 `SavedLinksViewModel.toastMessages`, collected via `LaunchedEffect` in each screen) rather than
@@ -200,10 +204,25 @@ bright against the near-black background. `outline` staying a full tier above ev
 is what keeps borders visible regardless of which exact container tier a given component defaults
 to.
 
-Dialog action buttons are colored per role rather than left as identical default-primary
-`TextButton`s (`ManageBrowsersScreen.kt`'s `RenameBrowserDialog`): `Save` keeps `primary` (the
-emphasized action), `Cancel` is `onSurfaceVariant` (neutral), `Reset` is `error` (a mild "this
-undoes something" signal, since it discards the custom name back to the system one).
+Dialog action buttons are materialized as bordered/tinted controls rather than unmaterialized
+text labels so the affordances read as buttons (`ManageBrowsersScreen.kt`'s `RenameBrowserDialog`):
+the emphasized action (`Save`) is a `FilledTonalButton`, and the mild "this undoes something"
+action (`Reset` — which discards the custom name back to the system one) is an `OutlinedButton`
+tinted Nord yellow (`nord13`, dark-amber in light mode). The full-page Notesnook settings shares
+the same button convention. `LinkerTheme` also supplies a custom `Shapes` (rounded corners) gutter
+so all M3 components pick up Nord-friendly geometry.
+
+Dialog headers are a custom `Dialog` + `Card` composition, not `AlertDialog`: the title sits next
+to a close (X) `IconButton` in the top-right corner (`RenameBrowserDialog`, `EditSavedLinkDialog`)
+instead of the default text-label Cancel button — same close-affordance pattern as the link
+chooser's header. The chooser's footer row is likewise icon buttons (Save/Copy/Share/Send), not
+text buttons.
+
+The Notesnook settings screen is a full page shown by toggling `isNotesnookSettingsOpen` in
+`MainActivity` and rendered inside an `AnimatedContent` so it slides in from the right like a
+navigation push. Because it's a plain boolean swap rather than a navigation destination, a
+`BackHandler(enabled = isNotesnookSettingsOpen)` intercepts the system back gesture/button to
+return to the tabs — without it the whole Activity would just finish.
 
 ## Fonts
 

@@ -21,23 +21,20 @@ data class BrowserListItem(
 )
 
 /**
- * Merges the live "what's installed" signal ([InstalledBrowsersRepository]) with the user's stored
- * per-browser overrides ([BrowserPrefDao]) into a single ordered list. A browser that has never
- * been interacted with has no DB row yet — it gets a default (visible, system label) and a
- * synthesized order index appended after every persisted one, computed fresh on every merge so
- * newly installed browsers consistently land at the end until the user reorders them.
+ * Merges what's installed ([InstalledBrowsersRepository]) with the user's stored per-browser
+ * settings (hidden state, custom name, order) into one ordered list. Browsers the user has never
+ * touched get default settings and land at the end; newly installed ones follow the same path.
  */
 class BrowserPrefsRepository(
     private val browserPrefDao: BrowserPrefDao,
     private val installedBrowsersRepository: InstalledBrowsersRepository
 ) {
 
-    // Bumped by the manual refresh button (ManageBrowsersScreen) so a re-scan can be forced even
-    // when no pref has changed — e.g. the user installed or removed a browser while this screen
-    // was already open and wants that reflected without waiting for the next natural re-emission.
+    // Refresh button forces a re-scan even when no pref changed (e.g. a browser was installed
+    // while the manage screen was already open).
     private val refreshTrigger = MutableStateFlow(0)
 
-    /** Full list (including hidden entries) for the manage/settings screen, updates as prefs change. */
+    /** Full list (hidden and visible) for the manage screen; updates as prefs change. */
     fun observeManageList(): Flow<List<BrowserListItem>> =
         combine(browserPrefDao.observeAll(), refreshTrigger) { prefs, _ -> prefs }
             .map { prefs -> merge(installedBrowsersRepository.getBrowsers(forceRefresh = true), prefs) }
@@ -46,7 +43,7 @@ class BrowserPrefsRepository(
         refreshTrigger.value++
     }
 
-    /** One-shot, hidden-filtered list for the link chooser — doesn't need to be reactive. */
+    /** One-shot, hidden-filtered list for the link chooser — no reactivity needed. */
     suspend fun loadVisibleBrowsers(): List<BrowserListItem> {
         val prefs = browserPrefDao.observeAll().first()
         return merge(installedBrowsersRepository.getBrowsers(), prefs).filterNot { it.hidden }
@@ -70,12 +67,8 @@ class BrowserPrefsRepository(
     }
 
     /**
-     * Hiding or renaming one browser used to only materialize *that* browser's own row, leaving
-     * its still-unpersisted siblings to get a fresh alphabetically-derived orderIndex next merge —
-     * and since that synthesis starts counting from just after the *persisted* max, promoting one
-     * sibling to a real row could shift where the counter starts and silently reshuffle everyone
-     * else's relative order. [applyOrder] below fixes that by locking in the whole currently-shown
-     * order first, so every hide/rename is order-neutral for the browsers it doesn't touch.
+     * Locks in the full current order before any hide/rename, so touching one browser never
+     * silently reshuffles the ones it doesn't touch.
      */
     suspend fun setHidden(currentList: List<BrowserListItem>, packageName: String, hidden: Boolean) {
         applyOrder(currentList)
@@ -90,9 +83,8 @@ class BrowserPrefsRepository(
     }
 
     /**
-     * Persists every item's position in [orderedList] as its orderIndex — used both for a
-     * drag-and-drop drop (see ManageBrowsersScreen) and, above, before any single hide/rename so
-     * the full current order becomes permanent rather than partially synthesized.
+     * Saves the current order as each item's orderIndex — used after a drag-and-drop
+     * reorder, and by hide/rename above.
      */
     suspend fun applyOrder(orderedList: List<BrowserListItem>) {
         val prefsByPackage = browserPrefDao.observeAll().first().associateBy { it.packageName }
