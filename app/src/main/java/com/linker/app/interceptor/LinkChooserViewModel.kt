@@ -31,9 +31,8 @@ class LinkChooserViewModel(
     var loadingBrowsers by mutableStateOf(true)
         private set
 
-    // Reflects whether editableUrl is already a saved link (pre-existing or just saved this
-    // session) — not just "was the save button tapped" — so the chooser's bookmark icon can look
-    // "already saved, tap to bump timestamp" even for a URL that arrived already saved.
+    // True when the current URL is already saved (from before or just now), so the bookmark
+    // icon flips to filled — "already saved, tap to refresh" instead of "save this".
     var isAlreadySaved by mutableStateOf(false)
         private set
 
@@ -65,8 +64,7 @@ class LinkChooserViewModel(
         }
     }
 
-    // Cancels any in-flight check so a burst of edits can't have an earlier (now-stale) lookup
-    // overwrite the result of a later one.
+    // Cancels in-flight lookups so a burst of edits can't let a stale result win.
     private fun checkAlreadySaved(url: String) {
         savedCheckJob?.cancel()
         savedCheckJob = viewModelScope.launch {

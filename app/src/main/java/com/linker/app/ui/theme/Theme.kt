@@ -1,26 +1,18 @@
 package com.linker.app.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
 
-// Nord is fundamentally a dark, arctic-bluish palette; dynamic color is deliberately disabled so
-// the app keeps a fixed Nord identity regardless of the device wallpaper (matches ownscreen/noter).
-//
-// Every role below is filled in explicitly, including the newer M3 "surface container" tiers
-// (surfaceContainer*/surfaceDim/surfaceBright) and the *Container roles for secondary/tertiary/
-// error. Leaving any of those out doesn't leave a gap — darkColorScheme()/lightColorScheme() quietly
-// substitute Material's own baseline (purple-tinted) defaults for whichever ones aren't passed. Card
-// and AlertDialog specifically read their background from surfaceContainerLow/surfaceContainerHigh,
-// not from `surface`, so without these the link-chooser popup's Card looked visibly off-Nord even
-// though the rest of the screen (background, text, primary accents) was correct.
-//
-// In the dark scheme, the container tiers are kept at nord0/nord1 (never nord3) specifically so
-// they stay clearly darker than `outline` (nord3): the first pass had surfaceContainerHigh equal
-// to outline, which made an OutlinedTextField's border colorwise identical to the popup card behind
-// it — invisible — and made elevated surfaces read as too bright against the near-black background.
+// Fixed Nord palette in dark and light mode (no dynamic color) — matches ownscreen/noter.
+// Every Material role is set on purpose: unset roles fall back to Material's default (purple)
+// colors, and cards/dialogs draw their background from the surfaceContainer tiers, so both
+// need explicit Nord values. Container tiers stay darker than `outline` so borders stay visible.
 
 private val NordDarkColorScheme = darkColorScheme(
     primary = nord8,
@@ -98,6 +90,13 @@ private val NordLightColorScheme = lightColorScheme(
     inversePrimary = nord8
 )
 
+private val LinkerShapes = Shapes(
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(28.dp)
+)
+
 @Composable
 fun LinkerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -106,6 +105,7 @@ fun LinkerTheme(
     MaterialTheme(
         colorScheme = if (darkTheme) NordDarkColorScheme else NordLightColorScheme,
         typography = LinkerTypography,
+        shapes = LinkerShapes,
         content = content
     )
 }

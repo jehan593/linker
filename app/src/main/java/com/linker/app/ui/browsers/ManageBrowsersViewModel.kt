@@ -34,12 +34,12 @@ class ManageBrowsersViewModel(
         }
     }
 
-    /** Called once a drag reorder gesture is dropped, with the full list in its new order. */
+    /** Saves the order after a drag is dropped. */
     fun persistOrder(orderedList: List<BrowserListItem>) {
         viewModelScope.launch { browserPrefsRepository.applyOrder(orderedList) }
     }
 
-    /** Forces a fresh PackageManager scan — see the refresh button in ManageBrowsersScreen. */
+    /** Forces a fresh scan of installed browsers (manage screen refresh button). */
     fun refresh() {
         browserPrefsRepository.refreshInstalledBrowsers()
     }

@@ -12,11 +12,9 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Sends a saved link to a Notesnook account via its Inbox API
- * (https://help.notesnook.com/inbox-api/getting-started) — same fixed endpoint and request shape
- * as the noter sibling app's NotesnookApi, adapted to POST a link instead of free-text note body.
- * The inbox key is per-account, created from Notesnook's own Settings > Inbox screen; this app
- * only ever POSTs to it.
+ * Posts a link to Notesnook's Inbox API keyed by the user's inbox key (Settings > Inbox in
+ * Notesnook). Same fixed endpoint and request shape as the noter sibling app, adapted to send
+ * a link instead of free text.
  */
 object NotesnookApi {
     private const val INBOX_URL = "https://inbox.notesnook.com/"

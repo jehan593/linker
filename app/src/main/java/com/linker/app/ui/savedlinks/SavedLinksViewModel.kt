@@ -28,9 +28,7 @@ class SavedLinksViewModel(
     var searchText by mutableStateOf("")
         private set
 
-    /** Plain substring match (case-insensitive) over the URL text — a saved-links list is small
-     *  enough that this doesn't need DB-level search, and a URL substring already covers matching
-     *  by domain since the domain is just part of that string. */
+    /** Case-insensitive substring match over the URL text — simple and fast enough for a personal list. */
     val links: StateFlow<List<SavedLinkEntity>> =
         combine(savedLinksRepository.observeAll(), searchQuery) { all, query ->
             if (query.isBlank()) all else all.filter { it.url.contains(query, ignoreCase = true) }

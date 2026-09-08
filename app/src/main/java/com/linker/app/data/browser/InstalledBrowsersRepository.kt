@@ -16,10 +16,9 @@ data class BrowserInfo(
 )
 
 /**
- * Enumerates every app that can resolve a bare https URL — the same signal Android itself uses to
- * decide what counts as a "browser" candidate. A short TTL cache avoids re-querying PackageManager
- * (which loads an icon per app) on every recomposition of the chooser screen; a newly installed
- * browser just takes up to [CACHE_TTL_MILLIS] to show up, which is an acceptable trade.
+ * Finds every app that resolves a bare https URL — the same signal Android uses when deciding
+ * what counts as a browser. A short-lived cache avoids re-loading every app's icon on each
+ * recomposition of the chooser; a newly installed browser shows up within [CACHE_TTL_MILLIS].
  */
 class InstalledBrowsersRepository(private val packageManager: PackageManager, private val selfPackage: String) {
 

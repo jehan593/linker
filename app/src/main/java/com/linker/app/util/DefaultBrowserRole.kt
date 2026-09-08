@@ -7,11 +7,9 @@ import android.os.Build
 import android.provider.Settings
 
 /**
- * RoleManager.ROLE_BROWSER (API 29+) is the direct "make this app the default browser" system
- * prompt — much more discoverable than sending the user into Settings > Apps > Default apps and
- * hoping they find "Browser app" themselves. Below API 29 (down to this app's minSdk 26) that role
- * API doesn't exist, so the fallback opens the general default-apps settings screen instead, where
- * the same choice is one tap further away.
+ * On API 29+ uses the system "make this the default browser" prompt — much friendlier than
+ * pointing the user into Settings. Below that (down to minSdk 26) it opens the general
+ * default-apps settings screen instead.
  */
 object DefaultBrowserRole {
 
