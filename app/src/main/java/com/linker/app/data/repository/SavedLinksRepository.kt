@@ -34,4 +34,9 @@ class SavedLinksRepository(private val savedLinkDao: SavedLinkDao) {
     suspend fun delete(link: SavedLinkEntity) {
         savedLinkDao.delete(link)
     }
+
+    /** Unsaves a URL (exact match after trimming) — no-op if it isn't saved. */
+    suspend fun deleteByUrl(url: String) {
+        savedLinkDao.findByUrl(url.trim())?.let { savedLinkDao.delete(it) }
+    }
 }

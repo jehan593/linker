@@ -37,8 +37,7 @@ class LinkInterceptorActivity : ComponentActivity() {
                             LinkChooserViewModel(
                                 url,
                                 container.browserPrefsRepository,
-                                container.savedLinksRepository,
-                                container.notesnookRepository
+                                container.savedLinksRepository
                             )
                         }
                     }

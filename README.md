@@ -11,10 +11,9 @@ for later, or send it straight to the browser you pick.
 
 ## Features
 
-- **Link chooser** — tap any link and get a small card to edit, save, copy, share, or send it, then pick a browser.
+- **Link chooser** — tap any link and get a small card to edit, save, copy, or share it, then pick a browser.
 - **Manage browsers** — hide, rename, and reorder the browsers in the chooser.
 - **Saved links** — a searchable history of saved links, grouped by day, that you can open, edit, copy, share, or delete.
-- **Send to Notesnook** — push any link to your Notesnook inbox.
 - **Nord theme** — clean dark/light look with the Nord palette and Martian Mono font.
 
 ## Install
