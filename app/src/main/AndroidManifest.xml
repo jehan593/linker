@@ -2,11 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Only needed for the "Send to Notesnook" action (data/remote/NotesnookApi.kt), which POSTs
-         a saved link to the user's own Notesnook inbox. Opening a link itself still never needs
-         this — that always hands off to the chosen browser app's own process. -->
-    <uses-permission android:name="android.permission.INTERNET" />
-
     <queries>
         <!-- Needed under Android 11+ package visibility to enumerate other browsers via
              PackageManager.queryIntentActivities — matches any app that declares itself able to

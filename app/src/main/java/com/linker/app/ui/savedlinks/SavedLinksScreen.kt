@@ -6,6 +6,7 @@ import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,15 +19,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,7 +35,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,19 +71,13 @@ fun SavedLinksScreen() {
     val container = rememberAppContainer()
     val viewModel: SavedLinksViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { SavedLinksViewModel(container.savedLinksRepository, container.notesnookRepository) }
+            initializer { SavedLinksViewModel(container.savedLinksRepository) }
         }
     )
     val links by viewModel.links.collectAsState()
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     var editTarget by remember { mutableStateOf<SavedLinkEntity?>(null) }
-
-    LaunchedEffect(viewModel) {
-        viewModel.toastMessages.collect { message ->
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-        }
-    }
 
     // Grouping happens after filtering so search keeps day headers. Links arrive newest-first,
     // so the groups come out newest-first too without extra sorting.
@@ -93,7 +87,9 @@ fun SavedLinksScreen() {
         OutlinedTextField(
             value = viewModel.searchText,
             onValueChange = viewModel::onSearchChanged,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             placeholder = { Text("Search saved links") },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             trailingIcon = {
@@ -103,7 +99,8 @@ fun SavedLinksScreen() {
                     }
                 }
             },
-            singleLine = true
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp)
         )
 
         if (links.isEmpty()) {
@@ -160,7 +157,6 @@ fun SavedLinksScreen() {
                                 }
                                 context.startActivity(Intent.createChooser(shareIntent, null))
                             },
-                            onSend = { viewModel.sendToNotesnook(link) },
                             onDelete = { viewModel.delete(link) }
                         )
                         HorizontalDivider()
@@ -190,14 +186,16 @@ private fun SavedLinkRow(
     onEdit: () -> Unit,
     onCopy: () -> Unit,
     onShare: () -> Unit,
-    onSend: () -> Unit,
     onDelete: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable { onOpen() }
     ) {
-        // Long URLs wrap in full (no truncation), tinted as a link so they read as links
-        // rather than plain text, distinct from the muted timestamp and action icons.
+        // Long URLs wrap in full (no truncation), tinted as a link so they read as clickable,
+        // distinct from the muted timestamp and action icons.
         Text(
             text = highlightedUrlText(link.url, searchQuery),
             style = MaterialTheme.typography.bodyMedium,
@@ -214,8 +212,8 @@ private fun SavedLinkRow(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Tinted by role: edit/copy/share/send are neutral, open matches the link accent,
-            // delete uses the error color as the one destructive action.
+            // Tinted by role: edit/copy/share are neutral, delete uses the error color
+            // as the one destructive action.
             IconButton(onClick = onEdit) {
                 Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -224,12 +222,6 @@ private fun SavedLinkRow(
             }
             IconButton(onClick = onShare) {
                 Icon(Icons.Filled.Share, contentDescription = "Share link", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            IconButton(onClick = onSend) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send to Notesnook", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            IconButton(onClick = onOpen) {
-                Icon(painterResource(R.drawable.ic_open_in_new), contentDescription = "Open", tint = MaterialTheme.colorScheme.primary)
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
@@ -294,14 +286,17 @@ private fun EditSavedLinkDialog(
                     onValueChange = { text = it },
                     textStyle = MaterialTheme.typography.bodyMedium,
                     label = { Text("Link") },
-                    modifier = Modifier.fillMaxWidth().imePadding()
+                    modifier = Modifier.fillMaxWidth().imePadding(),
+                    minLines = 5,
+                    maxLines = 5,
+                    shape = RoundedCornerShape(12.dp)
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    FilledTonalButton(onClick = { onSave(text) }) {
+                    OutlinedButton(onClick = { onSave(text) }) {
                         Text("Save")
                     }
                 }

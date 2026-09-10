@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
@@ -111,7 +110,7 @@ fun LinkChooserScreen(
                     }
                 }
 
-// Always 4 lines tall; longer URLs scroll inside the field so a monster link
+// Always 5 lines tall; longer URLs scroll inside the field so a monster link
                 // can't push the browser list and footer buttons off-screen.
                 OutlinedTextField(
                     value = viewModel.editableUrl,
@@ -120,9 +119,10 @@ fun LinkChooserScreen(
                         .fillMaxWidth()
                         .padding(top = 8.dp),
                     label = { Text("Link") },
-                    minLines = 4,
-                    maxLines = 4,
-                    textStyle = MaterialTheme.typography.bodyMedium
+                    minLines = 5,
+                    maxLines = 5,
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    shape = RoundedCornerShape(12.dp)
                 )
 
                 HorizontalDivider(Modifier.padding(vertical = 12.dp))
@@ -185,11 +185,11 @@ fun LinkChooserScreen(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { viewModel.saveLink() }) {
+                    IconButton(onClick = { viewModel.toggleSaveLink() }) {
                         Icon(
                             painter = painterResource(if (viewModel.isAlreadySaved) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border),
-                            contentDescription = if (viewModel.isAlreadySaved) "Already saved — tap to re-save" else "Save link",
-                            // Filled and tinted primary once saved, so the icon alone reads "already saved — tap to re-save".
+                            contentDescription = if (viewModel.isAlreadySaved) "Already saved — tap to unsave" else "Save link",
+                            // Filled and tinted primary once saved, so the icon alone reads "already saved — tap to unsave".
                             tint = if (viewModel.isAlreadySaved) MaterialTheme.colorScheme.primary else LocalContentColor.current
                         )
                     }
@@ -210,9 +210,6 @@ fun LinkChooserScreen(
                         context.startActivity(Intent.createChooser(shareIntent, null))
                     }) {
                         Icon(Icons.Filled.Share, contentDescription = "Share link")
-                    }
-                    IconButton(onClick = { viewModel.sendToNotesnook() }, enabled = !viewModel.isSending) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send to Notesnook")
                     }
                 }
             }
