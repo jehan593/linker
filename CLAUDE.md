@@ -44,9 +44,9 @@ Save, Copy, Share — sits at the bottom of the card below the browser list.
   Martian Mono weights actually used (regular, medium — no bold; the one `FontWeight.Bold` use in
   `SavedLinksScreen.kt`'s search highlight relies on synthesized/faux bold) are Latin-subset from
   the full Nerd Font (11k+ glyphs down to the ~345 codepoints/545 glyphs the app can render),
-  matching the subset shipped by the sibling apps. The five icons the base
+  matching the subset shipped by the sibling apps. The four icons the base
   `androidx.compose.material3`/`material-icons-core` set doesn't include (Bookmark, BookmarkBorder,
-  DragHandle, Public, the AutoMirrored OpenInNew) are vendored as plain XML vector drawables under
+  Public, the AutoMirrored OpenInNew) are vendored as plain XML vector drawables under
   `res/drawable/ic_*.xml` instead of pulling in `material-icons-extended` (a large icon pack whose
   ~1000 other icons the app never uses) — neither ownscreen nor noter carry that dependency either.
 
@@ -99,10 +99,13 @@ over what `InstalledBrowsersRepository` currently reports, not over stale `Brows
 
 `observeManageList()`'s `Flow` only naturally re-emits when a `BrowserPrefEntity` row changes, so
 installing/uninstalling a browser while Manage Browsers is already open wouldn't show up until some
-unrelated pref changed or the screen was reopened. The refresh button (top-right of the Browsers
-tab) works around that by bumping a `refreshTrigger: MutableStateFlow<Int>` that's `combine()`d with
-the prefs `Flow` purely to force the merge to re-run its `getBrowsers(forceRefresh = true)` scan on
-demand — the trigger's own value is never read, it's just a re-emission signal.
+unrelated pref changed or the screen was reopened. The pull-to-refresh gesture on the Browsers tab
+works around that by bumping a `refreshTrigger: MutableStateFlow<Int>` that's `combine()`d with the
+prefs `Flow` purely to force the merge to re-run its `getBrowsers(forceRefresh = true)` scan on
+demand — the trigger's own value is never read, it's just a re-emission signal. The refresh
+indicator stays up for a minimum period (`MIN_PULL_REFRESH_MILLIS`) so a fast rescan still reads as
+a deliberate refresh, and the same empty-state uses a `verticalScroll` so the gesture still works
+when there are no browsers at all.
 
 `setHidden`/`setCustomLabel` both call `applyOrder(currentList)` *before* writing their own field.
 Earlier they only materialized the one browser being touched, leaving its still-unpersisted
@@ -113,15 +116,40 @@ one browser reshuffles the whole list"). Locking in the full current order first
 hide/rename, makes that class of action order-neutral for every browser it doesn't touch.
 
 **Drag-and-drop reordering** (`ui/browsers/ManageBrowsersScreen.kt`): uses
-`sh.calvin.reorderable:reorderable` on the `LazyColumn`, but only over the *active* (non-hidden)
-subsection of the list. `onMove` only updates a local `mutableStateOf` list for immediate visual
-feedback — the DB isn't touched until `onDragStopped`, when `BrowserPrefsRepository.applyOrder()`
-rewrites every item's `orderIndex` to match its new position in one shot (simpler and more robust
-than trying to track individual swaps, and cheap since reorders are infrequent user-driven events,
-not a hot path). Hidden browsers render in their own "Hidden" section at the bottom with no drag
-handle (a fixed spacer keeps the icon/name columns aligned with the rows above) and no strikethrough
+`sh.calvin.reorderable:reorderable`, but only the *active* (non-hidden) rows are
+`ReorderableItem`s — they're the entire drag source. `onMove` only updates a local `mutableStateOf`
+list (`localList`) for immediate visual feedback, and the DB isn't touched until `onDragStopped`,
+when `BrowserPrefsRepository.applyOrder()` rewrites every item's `orderIndex` to match its new
+position in one shot (simpler than tracking individual swaps, and cheap since reorders are rare
+user-driven events). Hidden rows and the "Hidden" header are deliberately *plain* items: the active
+section is the only place a drag can start or land, so the drag physics stay identical to a list
+without a hidden section (when hidden rows were themselves drop targets, the section boundary was
+jittery and drops would randomly snap back). Active rows' `animateItemModifier` carries
+`fadeInSpec = null, fadeOutSpec = null`, so fresh renders and tab visits stay motionless.
+
+Toggling a switch moves the row between the two sections, so it gets its own visible motion instead
+of a placement-teleport: `recentlyHidden` records which browsers were switched live on this screen,
+and each hidden row (plus the header) is an `AnimatedVisibility` (`expandVertically` + `fadeIn`,
+350ms `FastOutSlowInEasing`) whose `MutableTransitionState` starts `false` on a fresh render — so
+only a real toggle folds the row in/out, never a tab visit or the load-spinner hand-off. The hidden
+rows and header also carry `Modifier.animateItem(fadeInSpec = null,
+placementSpec = SectionPlacementSpec, fadeOutSpec = null)` — `SectionPlacementSpec`, a slower
+`StiffnessLow` spring, is used only on *non-reorderable* items, since stacking another
+`animateItem()` on top of the reorderable library's on draggable rows makes drags stutter.
+
+The drag handle is the same faint 3×2 grip-dot grid (`ReorderGrip` in `ManageBrowsersScreen.kt`,
+3dp dots/3dp gaps, `onSurfaceVariant` at 50% alpha) ownapps uses on its pinned rows, placed on the
+right between the label and the Edit icon (mirroring ownapps, which puts it just before the unpin
+toggle); it's applied as `Modifier.draggableHandle(onDragStopped = ...).padding(horizontal = 8.dp,
+vertical = 4.dp)` — the padding grows the touch target from the bare 9dp grid, ownapps' exact
+modifier chain. Hidden rows render with `Modifier` there, swap the grip for a 25dp spacer (9dp grid
++ 2×8dp padding) so the edit/switch column stays aligned, and cannot be dragged. Hidden browsers
+have no strikethrough
 — hiding a browser just marks it `hidden` and leaves its `orderIndex` untouched, so it keeps its
-"home" slot and re-enabling sorts it right back to where it was. The hidden/visible state has a
+"home" slot and re-enabling sorts it right back to where it was. The hidden section itself orders by
+recency: `setHidden` also stamps `hiddenAtMillis` (a nullable column added in the v2 DB migration), so
+the most recently disabled browser lands at the bottom of the Hidden list (oldest-hidden first)
+regardless of its preserved `orderIndex`. The hidden/visible state has a
 single control (the `Switch`) — no separate eye icon alongside it, since that was redundant with
 what the switch's own position already shows.
 
@@ -185,18 +213,17 @@ bright against the near-black background. `outline` staying a full tier above ev
 is what keeps borders visible regardless of which exact container tier a given component defaults
 to.
 
-Dialog action buttons are materialized as bordered/tinted controls rather than unmaterialized
-text labels so the affordances read as buttons (`ManageBrowsersScreen.kt`'s `RenameBrowserDialog`):
-the emphasized action (`Save`) is a `FilledTonalButton`, and the mild "this undoes something"
-action (`Reset` — which discards the custom name back to the system one) is an `OutlinedButton`
-tinted Nord yellow (`nord13`, dark-amber in light mode). `LinkerTheme` also supplies a custom
-`Shapes` (rounded corners) gutter so all M3 components pick up Nord-friendly geometry.
+Dialogs are standard M3 `AlertDialog`s on the flat `surface` color with 12 dp corners
+(`RenameBrowserDialog`, `EditSavedLinkDialog`). The emphasized action (`Save`) is a filled
+`Button` (nord9, dark text), dismissal is a text-only `TextButton` (`Cancel`), and
+`RenameBrowserDialog`'s `Reset` — which discards the custom name back to the system one — is a
+text-only warning `TextButton` tinted nord13 in dark mode / nord12 in light. `LinkerTheme` also
+supplies a custom `Shapes` (rounded corners) gutter so all M3 components pick up Nord-friendly
+geometry.
 
-Dialog headers are a custom `Dialog` + `Card` composition, not `AlertDialog`: the title sits next
-to a close (X) `IconButton` in the top-right corner (`RenameBrowserDialog`, `EditSavedLinkDialog`)
-instead of the default text-label Cancel button — same close-affordance pattern as the link
-chooser's header. The chooser's footer row is likewise icon buttons (Save/Copy/Share), not
-text buttons.
+Only the chooser keeps a custom card header with a close (X) `IconButton` in its top-right corner;
+the dialogs rely on the standard text-label Cancel instead. The chooser's footer row is likewise
+icon buttons (Save/Copy/Share), not text buttons.
 
 ## Fonts
 

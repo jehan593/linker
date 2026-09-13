@@ -17,6 +17,7 @@ data class BrowserListItem(
     val displayLabel: String,
     val icon: Drawable,
     val hidden: Boolean,
+    val hiddenAtMillis: Long? = null,
     val orderIndex: Int
 )
 
@@ -61,6 +62,7 @@ class BrowserPrefsRepository(
                 displayLabel = pref?.customLabel?.takeIf { it.isNotBlank() } ?: info.systemLabel,
                 icon = info.icon,
                 hidden = pref?.hidden ?: false,
+                hiddenAtMillis = pref?.hiddenAtMillis,
                 orderIndex = orderIndex
             )
         }.sortedBy { it.orderIndex }
@@ -73,7 +75,14 @@ class BrowserPrefsRepository(
     suspend fun setHidden(currentList: List<BrowserListItem>, packageName: String, hidden: Boolean) {
         applyOrder(currentList)
         val pref = browserPrefDao.observeAll().first().first { it.packageName == packageName }
-        browserPrefDao.upsert(pref.copy(hidden = hidden))
+        browserPrefDao.upsert(
+            pref.copy(
+                hidden = hidden,
+                // Most-recently-hidden browser sorts to the top of the hidden section; re-enabling
+                // leaves the preserved orderIndex "home" slot untouched, as before.
+                hiddenAtMillis = if (hidden) System.currentTimeMillis() else null
+            )
+        )
     }
 
     suspend fun setCustomLabel(currentList: List<BrowserListItem>, packageName: String, label: String?) {

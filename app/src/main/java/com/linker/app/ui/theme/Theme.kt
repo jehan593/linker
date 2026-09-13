@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 // need explicit Nord values. Container tiers stay darker than `outline` so borders stay visible.
 
 private val NordDarkColorScheme = darkColorScheme(
-    primary = nord8,
+    primary = nord9,
     onPrimary = nord0,
     primaryContainer = nord10,
     onPrimaryContainer = nord6,
@@ -33,7 +33,7 @@ private val NordDarkColorScheme = darkColorScheme(
     onSurface = nord4,
     surfaceVariant = nord2,
     onSurfaceVariant = nord4,
-    surfaceTint = nord8,
+    surfaceTint = nord9,
     surfaceDim = nord0,
     surfaceBright = nord2,
     surfaceContainerLowest = nord0,
@@ -53,9 +53,9 @@ private val NordDarkColorScheme = darkColorScheme(
 )
 
 private val NordLightColorScheme = lightColorScheme(
-    primary = nord10,
-    onPrimary = nord6,
-    primaryContainer = nord8,
+    primary = nord9,
+    onPrimary = nord0,
+    primaryContainer = nord9,
     onPrimaryContainer = nord0,
     secondary = nord7,
     onSecondary = nord0,
@@ -71,7 +71,7 @@ private val NordLightColorScheme = lightColorScheme(
     onSurface = nord1,
     surfaceVariant = nord4,
     onSurfaceVariant = nord1,
-    surfaceTint = nord10,
+    surfaceTint = nord9,
     surfaceDim = nord4,
     surfaceBright = nord6,
     surfaceContainerLowest = nord6,

@@ -18,6 +18,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
 
     override val database: AppDatabase by lazy {
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DATABASE_NAME)
+            .addMigrations(AppDatabase.MIGRATION_1_2)
             .fallbackToDestructiveMigration()
             .build()
     }

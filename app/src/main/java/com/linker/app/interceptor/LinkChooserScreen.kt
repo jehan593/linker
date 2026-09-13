@@ -29,8 +29,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,7 +45,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -54,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.linker.app.R
 import com.linker.app.ui.components.AppIcon
+import com.linker.app.ui.theme.nord0
 import kotlin.math.roundToInt
 
 @Composable
@@ -77,7 +78,7 @@ fun LinkChooserScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
+            .background(nord0.copy(alpha = 0.5f))
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() }
@@ -92,9 +93,10 @@ fun LinkChooserScreen(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 ) { /* absorb clicks so the scrim below doesn't dismiss */ },
-            shape = RoundedCornerShape(20.dp)
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Column(Modifier.padding(16.dp)) {
+            Column(Modifier.padding(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(painterResource(R.drawable.ic_public), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(8.dp))
@@ -119,9 +121,9 @@ fun LinkChooserScreen(
                         .fillMaxWidth()
                         .padding(top = 8.dp),
                     label = { Text("Link") },
-                    minLines = 5,
-                    maxLines = 5,
-                    textStyle = MaterialTheme.typography.bodyMedium,
+                    minLines = 4,
+                    maxLines = 4,
+                    textStyle = MaterialTheme.typography.bodySmall,
                     shape = RoundedCornerShape(12.dp)
                 )
 

@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,14 +24,16 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,8 +51,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -113,7 +111,8 @@ fun SavedLinksScreen() {
                         "No saved links yet. Use the bookmark icon in the chooser to save one."
                     else
                         "No saved links match \"${viewModel.searchText}\".",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         } else {
@@ -126,7 +125,7 @@ fun SavedLinksScreen() {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surface)
+                                .background(MaterialTheme.colorScheme.background)
                                 .padding(horizontal = 16.dp, vertical = 6.dp)
                         )
                     }
@@ -159,7 +158,6 @@ fun SavedLinksScreen() {
                             },
                             onDelete = { viewModel.delete(link) }
                         )
-                        HorizontalDivider()
                     }
                 }
             }
@@ -188,43 +186,46 @@ private fun SavedLinkRow(
     onShare: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Column(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clickable { onOpen() }
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        // Long URLs wrap in full (no truncation), tinted as a link so they read as clickable,
-        // distinct from the muted timestamp and action icons.
-        Text(
-            text = highlightedUrlText(link.url, searchQuery),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = formatSavedTime(link.savedAtMillis),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        // Actions on their own row below the URL, right-aligned so they read as belonging to it.
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+                .clickable { onOpen() }
         ) {
-            // Tinted by role: edit/copy/share are neutral, delete uses the error color
-            // as the one destructive action.
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            IconButton(onClick = onCopy) {
-                Icon(painterResource(R.drawable.ic_content_copy), contentDescription = "Copy link", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            IconButton(onClick = onShare) {
-                Icon(Icons.Filled.Share, contentDescription = "Share link", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+            Text(
+                text = highlightedUrlText(link.url, searchQuery),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = formatSavedTime(link.savedAtMillis),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = onCopy) {
+                    Icon(painterResource(R.drawable.ic_content_copy), contentDescription = "Copy link", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = onShare) {
+                    Icon(Icons.Filled.Share, contentDescription = "Share link", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
@@ -261,46 +262,32 @@ private fun EditSavedLinkDialog(
 ) {
     var text by remember(link.id) { mutableStateOf(link.url) }
 
-    Dialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .widthIn(max = 480.dp)
-        ) {
-            Column(Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Edit link",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Filled.Close, contentDescription = "Close")
-                    }
-                }
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                    label = { Text("Link") },
-                    modifier = Modifier.fillMaxWidth().imePadding(),
-                    minLines = 5,
-                    maxLines = 5,
-                    shape = RoundedCornerShape(12.dp)
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedButton(onClick = { onSave(text) }) {
-                        Text("Save")
-                    }
-                }
+        title = { Text("Edit link") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                textStyle = MaterialTheme.typography.bodySmall,
+                label = { Text("Link") },
+                modifier = Modifier.fillMaxWidth().imePadding(),
+                minLines = 4,
+                maxLines = 4,
+                shape = RoundedCornerShape(12.dp)
+            )
+        },
+        shape = RoundedCornerShape(12.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        confirmButton = {
+            Button(onClick = { onSave(text) }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
             }
         }
-    }
+    )
 }
