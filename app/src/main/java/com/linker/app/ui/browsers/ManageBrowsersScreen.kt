@@ -107,9 +107,19 @@ fun ManageBrowsersScreen() {
     val activePackageNames = remember(activeBrowsers) {
         activeBrowsers.mapTo(HashSet()) { it.packageName }
     }
+    val freshByPackage = remember(activeBrowsers) {
+        activeBrowsers.associateBy { it.packageName }
+    }
     if (activePackageNames != localList.mapTo(HashSet()) { it.packageName }) {
         localList.clear()
         localList.addAll(activeBrowsers)
+    } else {
+        // A rename doesn't change the package set, so the membership check above misses it.
+        // Sync each row's data in place, without clobbering an in-progress drag.
+        for (i in localList.indices) {
+            val fresh = freshByPackage[localList[i].packageName] ?: continue
+            if (localList[i] != fresh) localList[i] = fresh
+        }
     }
 
     val scope = rememberCoroutineScope()
