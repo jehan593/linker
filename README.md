@@ -11,15 +11,15 @@ for later, or send it straight to the browser you pick.
 
 ## Features
 
-- **Link chooser** ΓÇö tap any link and get a small card to edit, save, copy, or share it, then pick a browser.
-- **Manage browsers** ΓÇö hide, rename, and reorder the browsers in the chooser.
-- **Saved links** ΓÇö a searchable history of saved links, grouped by day, that you can open, edit, copy, share, or delete.
-- **Nord theme** ΓÇö clean dark/light look with the Nord palette and Martian Mono font.
+- **Link chooser** — tap any link and get a small card to edit, save, copy, or share it, then pick a browser.
+- **Manage browsers** — hide, rename, and reorder the browsers in the chooser.
+- **Saved links** — a searchable history of saved links, grouped by day, that you can open, edit, copy, share, or delete.
+- **Nord theme** — clean dark/light look with the Nord palette and Martian Mono font.
 
 ## Install
 
 Download the latest APK from [Releases](https://github.com/jehan593/linker/releases/latest). After
-installing, set Linker as your default browser app (Settings ΓåÆ Apps ΓåÆ Default apps ΓåÆ Browser app)
+installing, set Linker as your default browser app (Settings → Apps → Default apps → Browser app)
 so links tapped anywhere open this chooser first.
 
 ## Build
@@ -36,6 +36,6 @@ Kotlin, Jetpack Compose, Material 3, Room.
 
 ## License
 
-MIT ΓÇö see [`LICENSE`](LICENSE). The bundled Martian Mono font is licensed separately under the
-SIL Open Font License 1.1 ΓÇö see
+MIT — see [`LICENSE`](LICENSE). The bundled Martian Mono font is licensed separately under the
+SIL Open Font License 1.1 — see
 [`app/licenses/MARTIAN_MONO_LICENSE.txt`](app/licenses/MARTIAN_MONO_LICENSE.txt).
